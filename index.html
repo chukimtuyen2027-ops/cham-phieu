@@ -35,6 +35,8 @@ textarea{min-height:90px;font:13px/1.3 ui-monospace,monospace}label{display:bloc
 <div class="the"><b>Đã chấm: <span id="n">0</span> bài</b>
 <table id="ds"></table>
 <button class="nhat" id="csv">Tải bảng điểm (.csv)</button>
+<button id="taizip">⬇ Tải tất cả bài chấm (.zip: ảnh từng bài + bảng điểm)</button>
+<label class="phu" style="display:block;margin:4px 0"><input type="checkbox" id="zipgoc"> Kèm cả ảnh bài làm gốc (file nặng hơn)</label>
 <button class="nhat" id="xuat">Lưu file kết quả + ảnh để chuyển về máy tính (.json)</button>
 <button class="nhat" id="chiase" style="display:none">Gửi file kết quả (Zalo, Drive, email...)</button>
 <div class="phu">File này chứa điểm, ảnh bài làm và ảnh đã chấm của mọi bài ở trên. Chuyển về máy tính rồi vào phần mềm: Phiếu tô › Chấm bài › “Nhập kết quả từ điện thoại...”.</div>
@@ -553,13 +555,55 @@ $("chiase").onclick = async () => { if (!ketQua.length) { alert("Chưa có bài 
   try { await navigator.share({files: [new File([goiKetQua()], tenFileKq(), {type: "application/json"})], title: "Kết quả chấm phiếu tô"}); } catch (e) { if (e && e.name !== "AbortError") alert("Không gửi được: " + e); } };
 $("xoa").onclick = () => { if (confirm("Xoá toàn bộ danh sách đã chấm?")) { ketQua = []; chon = -1; $("kq").innerHTML = ""; luuKetQua(); veDS(); } };
 function khoaSapXep(ten) { const t = ten.trim().split(/\s+/); return [t[t.length - 1] || "~", t.slice(0, -1).join(" ")]; }
-$("csv").onclick = () => {
-  const co = new Intl.Collator("vi"), ds = ketQua.map(d => d).sort((a, b) => { const ta = tenTheoSBD(a.sbd), tb = tenTheoSBD(b.sbd);
+function dsSapXep() {
+  const co = new Intl.Collator("vi");
+  return ketQua.map(d => d).sort((a, b) => { const ta = tenTheoSBD(a.sbd), tb = tenTheoSBD(b.sbd);
     if (ta && tb) { const x = khoaSapXep(ta), y = khoaSapXep(tb); return co.compare(x[0], y[0]) || co.compare(x[1], y[1]); } return (a.sbd || "").localeCompare(b.sbd || ""); });
+}
+function taoCsv(ds) {
   const q = s => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
-  let s = "﻿STT,Số báo danh,Họ và tên,Tên đề,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
+  let s = "\ufeffSTT,Số báo danh,Họ và tên,Tên đề,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
   ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.de || ""), q(d.ma), d.ok ? g2(d.diem_1) : "", d.ok ? g2(d.diem_2) : "", d.ok ? g2(d.diem_3) : "", d.ok ? g2(d.tong) : "", q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([s], {type: "text/csv;charset=utf-8"})); a.download = "ket_qua_cham.csv"; document.body.appendChild(a); a.click(); a.remove();
+  return s;
+}
+function taiXuong(blob, ten) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ten; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); }
+$("csv").onclick = () => taiXuong(new Blob([taoCsv(dsSapXep())], {type: "text/csv;charset=utf-8"}), "ket_qua_cham.csv");
+// ---- Tải tất cả bài chấm: file .zip gồm bảng điểm + ảnh từng bài đã chấm (tự tạo zip, không cần mạng) ----
+const BANG_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u) { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = BANG_CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function taoZip(files) {      // files: [{ten, du: Uint8Array}] -> Blob (lưu nguyên, không nén: ảnh JPEG đã nén sẵn)
+  const enc = new TextEncoder(), phan = [], tt = []; let vt = 0;
+  const d = new Date(), gio = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), ngay = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const f of files) {
+    const ten = enc.encode(f.ten), crc = crc32(f.du), h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint16(10, gio, true); h.setUint16(12, ngay, true);
+    h.setUint32(14, crc, true); h.setUint32(18, f.du.length, true); h.setUint32(22, f.du.length, true); h.setUint16(26, ten.length, true); h.setUint16(28, 0, true);
+    phan.push(h.buffer, ten, f.du); tt.push({ten, crc, kt: f.du.length, vt}); vt += 30 + ten.length + f.du.length;
+  }
+  const ds0 = vt; let kt = 0;
+  for (const e of tt) {
+    const h = new DataView(new ArrayBuffer(46));
+    h.setUint32(0, 0x02014b50, true); h.setUint16(4, 20, true); h.setUint16(6, 20, true); h.setUint16(8, 0x0800, true); h.setUint16(10, 0, true); h.setUint16(12, gio, true); h.setUint16(14, ngay, true);
+    h.setUint32(16, e.crc, true); h.setUint32(20, e.kt, true); h.setUint32(24, e.kt, true); h.setUint16(28, e.ten.length, true); h.setUint32(42, e.vt, true);
+    phan.push(h.buffer, e.ten); kt += 46 + e.ten.length;
+  }
+  const c = new DataView(new ArrayBuffer(22)); c.setUint32(0, 0x06054b50, true); c.setUint16(8, tt.length, true); c.setUint16(10, tt.length, true); c.setUint32(12, kt, true); c.setUint32(16, ds0, true);
+  phan.push(c.buffer); return new Blob(phan, {type: "application/zip"});
+}
+function duTuDataURL(u) { const b = atob(u.split(",")[1]), r = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) r[i] = b.charCodeAt(i); return r; }
+function tenAn(s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, ""); }
+function tenBai(d, i) { return String(i + 1).padStart(3, "0") + "_" + (tenAn(tenTheoSBD(d.sbd)) || tenAn(d.sbd) || "khong_doc_duoc"); }
+$("taizip").onclick = () => {
+  if (!ketQua.length) { alert("Chưa có bài nào để tải."); return; }
+  const ds = dsSapXep(), files = [{ten: "bang_diem.csv", du: new TextEncoder().encode(taoCsv(ds))}]; let co = 0, thieu = 0;
+  ds.forEach((d, i) => {
+    if (d.ok && d.anh && d.anh.startsWith("data:")) { files.push({ten: "da_cham/" + tenBai(d, i) + "_" + String(d.tong != null ? +(+d.tong).toFixed(2) : "").replace(".", ",") + "d.jpg", du: duTuDataURL(d.anh)}); co++; }
+    else if (d.ok) thieu++;
+    if ($("zipgoc").checked && d.goc && d.goc.startsWith("data:")) files.push({ten: "bai_lam_goc/" + tenBai(d, i) + ".jpg", du: duTuDataURL(d.goc)});
+  });
+  const n = new Date(), p = x => String(x).padStart(2, "0");
+  taiXuong(taoZip(files), "bai_cham_" + (tenAn(tenDeHT) ? tenAn(tenDeHT) + "_" : "") + n.getFullYear() + p(n.getMonth() + 1) + p(n.getDate()) + "_" + p(n.getHours()) + p(n.getMinutes()) + ".zip");
+  if (thieu) alert("Có " + thieu + " bài không còn ảnh đã chấm (ảnh không được lưu sau khi tải lại trang), chỉ có điểm trong bảng điểm.");
 };
 /* ---- QR tổng: một mã QR chứa đáp án của nhiều mã đề ---- */
 function giaiMaTong(chuoi, biMat) {      // "DAK1.xxx.yyy" -> {mã đề: {"1":[],"2":[],"3":[]}} hoặc null
