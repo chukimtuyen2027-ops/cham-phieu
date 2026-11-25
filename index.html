@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chấm phiếu tô trên điện thoại</title>
+<style>
+:root{--nen:#f4f6f8;--the:#fff;--chu:#1b2733;--phu:#5b6b7a;--xanh:#0a7d4f;--do:#c0392b;--nut:#1456c8;--vien:#d9e0e7}
+@media(prefers-color-scheme:dark){:root{--nen:#12171c;--the:#1c242c;--chu:#eaf0f5;--phu:#9fb0c0;--xanh:#3ecf8e;--do:#ff7b6b;--nut:#5b9bff;--vien:#2e3a46}}
+*{box-sizing:border-box}body{margin:0;background:var(--nen);color:var(--chu);font:16px/1.45 system-ui,sans-serif;padding:16px;max-width:720px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}.phu{color:var(--phu);font-size:14px}
+button,.nut{display:block;width:100%;padding:16px;border:0;border-radius:14px;background:var(--nut);color:#fff;font-size:17px;font-weight:600;margin:10px 0;text-align:center}
+button.nhat{background:var(--the);color:var(--chu);border:1px solid var(--vien);font-weight:500;padding:12px;font-size:15px}
+button:disabled{opacity:.6}
+.the{background:var(--the);border:1px solid var(--vien);border-radius:14px;padding:14px;margin:12px 0}
+.diem{font-size:34px;font-weight:700}.ok{color:var(--xanh)}.loi{color:var(--do)}
+.luoi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.luoi div{background:var(--nen);border-radius:10px;padding:8px;text-align:center}
+.luoi b{display:block;font-size:18px}canvas,img{width:100%;border-radius:10px;margin-top:8px}
+.cb{color:var(--do);font-size:14px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--vien);text-align:left}
+tr.chon td{background:var(--nen)}input[type=text],textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--vien);background:var(--the);color:var(--chu);font-size:16px}
+textarea{min-height:90px;font:13px/1.3 ui-monospace,monospace}label{display:block;margin:8px 0 2px;font-size:14px;color:var(--phu)}
+.hang{display:grid;grid-template-columns:1fr 1fr;gap:8px}details{margin:10px 0}summary{padding:10px 0;font-weight:600}
+</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1456c8"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"></head><body>
+<h1>Chấm phiếu tô trên điện thoại</h1>
+<div class="phu" id="tt">Đang tải...</div>
+<div id="goi" style="display:none"><button class="nhat" id="ngoi">📥 Nạp gói đề (.json) từ máy tính</button><input id="fgoi" type="file" accept=".json,application/json,*/*" hidden><div class="phu" id="goitt"></div></div>
+<input id="fchup" type="file" accept="image/*" capture="environment" hidden>
+<input id="fchon" type="file" accept="image/*" multiple hidden>
+<button id="chup">Chụp phiếu</button>
+<button class="nhat" id="quet">📷 Quét phiếu liên tục (không cần bấm chụp)</button>
+<div id="khung" hidden style="position:fixed;inset:0;background:#000;z-index:50;display:none;flex-direction:column"><video id="vid" playsinline muted autoplay style="flex:1;min-height:0;width:100%;object-fit:contain"></video><div id="qtt" style="color:#fff;padding:10px;text-align:center;font-size:18px;font-weight:600">Đang mở camera...</div><button id="qdung" style="margin:0 12px 14px">Dừng quét</button></div>
+<button class="nhat" id="chon">Chọn ảnh có sẵn trong máy (nhiều ảnh)</button>
+<input id="fqr" type="file" accept="image/*" capture="environment" hidden>
+<button class="nhat" id="qrtong">📷 Nạp đáp án: chụp mã QR tổng của các mã đề</button>
+<div class="phu">Chụp rõ cả 4 ô vuông đen ở góc phiếu, đủ sáng, phiếu nằm phẳng, ảnh không bị chói.</div>
+<div id="kq"></div>
+<div class="the"><b>Đã chấm: <span id="n">0</span> bài</b>
+<table id="ds"></table>
+<button class="nhat" id="csv">Tải bảng điểm (.csv)</button>
+<button class="nhat" id="xuat">Lưu file kết quả + ảnh để chuyển về máy tính (.json)</button>
+<button class="nhat" id="chiase" style="display:none">Gửi file kết quả (Zalo, Drive, email...)</button>
+<div class="phu">File này chứa điểm, ảnh bài làm và ảnh đã chấm của mọi bài ở trên. Chuyển về máy tính rồi vào phần mềm: Phiếu tô › Chấm bài › “Nhập kết quả từ điện thoại...”.</div>
+<button class="nhat" id="xoa">Xoá danh sách đã chấm</button></div>
+<details><summary>Cài đặt, bộ đáp án, danh sách lớp</summary>
+<div class="the">
+<label>Độ nhạy khi tô (nhỏ = nhạy hơn): <b id="vng">0.45</b></label>
+<input id="ngu" type="range" min="30" max="70" value="45" style="width:100%">
+<div class="hang"><div><label>Điểm/câu trắc nghiệm</label><input type="text" id="dtn" inputmode="decimal"></div>
+<div><label>Điểm/câu trả lời ngắn</label><input type="text" id="dtln" inputmode="decimal"></div></div>
+<div class="hang"><div><label>Phần II: cách tính</label><select id="dsc" style="width:100%;padding:10px"><option value="y">Mỗi ý đúng 0,25</option><option value="chinh_thuc">0,1/0,25/0,5/1 theo số ý đúng</option></select></div>
+<div><label>Điểm mỗi ý (chế độ “mỗi ý”)</label><input type="text" id="dy" inputmode="decimal"></div></div>
+<label>Bộ đáp án (dán nội dung file CSV đáp án xuất từ Đảo đề; bỏ trống nếu đã có sẵn hoặc phiếu có mã QR)</label>
+<textarea id="khoa" placeholder="Phần,Câu,101,102&#10;Phần I,1,A,B&#10;..."></textarea>
+<label>Danh sách lớp (mỗi dòng: số báo danh, họ tên) để hiện tên và sắp xếp A–Z</label>
+<textarea id="lop" placeholder="123,Nguyễn Văn Bình&#10;17,Trần Thị An"></textarea>
+<button class="nhat" id="luu">Lưu cài đặt</button>
+</div></details>
+<script>
+const DU_LIEU = {"bo_cuc": {"sbd": [[[152.635, 40.835], [152.635, 46.079], [152.635, 51.322], [152.635, 56.566], [152.635, 61.809], [152.635, 67.053], [152.635, 72.296], [152.635, 77.54], [152.635, 82.784], [152.635, 88.027]], [[156.329, 40.835], [156.329, 46.079], [156.329, 51.322], [156.329, 56.566], [156.329, 61.809], [156.329, 67.053], [156.329, 72.296], [156.329, 77.54], [156.329, 82.784], [156.329, 88.027]], [[160.024, 40.835], [160.024, 46.079], [160.024, 51.322], [160.024, 56.566], [160.024, 61.809], [160.024, 67.053], [160.024, 72.296], [160.024, 77.54], [160.024, 82.784], [160.024, 88.027]], [[163.718, 40.835], [163.718, 46.079], [163.718, 51.322], [163.718, 56.566], [163.718, 61.809], [163.718, 67.053], [163.718, 72.296], [163.718, 77.54], [163.718, 82.784], [163.718, 88.027]], [[167.412, 40.835], [167.412, 46.079], [167.412, 51.322], [167.412, 56.566], [167.412, 61.809], [167.412, 67.053], [167.412, 72.296], [167.412, 77.54], [167.412, 82.784], [167.412, 88.027]], [[171.106, 40.835], [171.106, 46.079], [171.106, 51.322], [171.106, 56.566], [171.106, 61.809], [171.106, 67.053], [171.106, 72.296], [171.106, 77.54], [171.106, 82.784], [171.106, 88.027]]], "ma": [[[183.588, 40.835], [183.588, 46.079], [183.588, 51.322], [183.588, 56.566], [183.588, 61.809], [183.588, 67.053], [183.588, 72.296], [183.588, 77.54], [183.588, 82.784], [183.588, 88.027]], [[187.282, 40.835], [187.282, 46.079], [187.282, 51.322], [187.282, 56.566], [187.282, 61.809], [187.282, 67.053], [187.282, 72.296], [187.282, 77.54], [187.282, 82.784], [187.282, 88.027]], [[190.976, 40.835], [190.976, 46.079], [190.976, 51.322], [190.976, 56.566], [190.976, 61.809], [190.976, 67.053], [190.976, 72.296], [190.976, 77.54], [190.976, 82.784], [190.976, 88.027]], [[194.671, 40.835], [194.671, 46.079], [194.671, 51.322], [194.671, 56.566], [194.671, 61.809], [194.671, 67.053], [194.671, 72.296], [194.671, 77.54], [194.671, 82.784], [194.671, 88.027]]], "p1": [[[22.812, 111.741], [32.512, 111.741], [42.212, 111.741], [51.912, 111.741]], [[22.812, 116.316], [32.512, 116.316], [42.212, 116.316], [51.912, 116.316]], [[22.812, 120.892], [32.512, 120.892], [42.212, 120.892], [51.912, 120.892]], [[22.812, 125.467], [32.512, 125.467], [42.212, 125.467], [51.912, 125.467]], [[22.812, 130.042], [32.512, 130.042], [42.212, 130.042], [51.912, 130.042]], [[22.812, 134.618], [32.512, 134.618], [42.212, 134.618], [51.912, 134.618]], [[22.812, 139.193], [32.512, 139.193], [42.212, 139.193], [51.912, 139.193]], [[22.812, 143.768], [32.512, 143.768], [42.212, 143.768], [51.912, 143.768]], [[22.812, 148.344], [32.512, 148.344], [42.212, 148.344], [51.912, 148.344]], [[22.812, 152.919], [32.512, 152.919], [42.212, 152.919], [51.912, 152.919]], [[69.235, 111.741], [78.935, 111.741], [88.635, 111.741], [98.335, 111.741]], [[69.235, 116.316], [78.935, 116.316], [88.635, 116.316], [98.335, 116.316]], [[69.235, 120.892], [78.935, 120.892], [88.635, 120.892], [98.335, 120.892]], [[69.235, 125.467], [78.935, 125.467], [88.635, 125.467], [98.335, 125.467]], [[69.235, 130.042], [78.935, 130.042], [88.635, 130.042], [98.335, 130.042]], [[69.235, 134.618], [78.935, 134.618], [88.635, 134.618], [98.335, 134.618]], [[69.235, 139.193], [78.935, 139.193], [88.635, 139.193], [98.335, 139.193]], [[69.235, 143.768], [78.935, 143.768], [88.635, 143.768], [98.335, 143.768]], [[69.235, 148.344], [78.935, 148.344], [88.635, 148.344], [98.335, 148.344]], [[69.235, 152.919], [78.935, 152.919], [88.635, 152.919], [98.335, 152.919]], [[115.659, 111.741], [125.359, 111.741], [135.059, 111.741], [144.759, 111.741]], [[115.659, 116.316], [125.359, 116.316], [135.059, 116.316], [144.759, 116.316]], [[115.659, 120.892], [125.359, 120.892], [135.059, 120.892], [144.759, 120.892]], [[115.659, 125.467], [125.359, 125.467], [135.059, 125.467], [144.759, 125.467]], [[115.659, 130.042], [125.359, 130.042], [135.059, 130.042], [144.759, 130.042]], [[115.659, 134.618], [125.359, 134.618], [135.059, 134.618], [144.759, 134.618]], [[115.659, 139.193], [125.359, 139.193], [135.059, 139.193], [144.759, 139.193]], [[115.659, 143.768], [125.359, 143.768], [135.059, 143.768], [144.759, 143.768]], [[115.659, 148.344], [125.359, 148.344], [135.059, 148.344], [144.759, 148.344]], [[115.659, 152.919], [125.359, 152.919], [135.059, 152.919], [144.759, 152.919]], [[162.082, 111.741], [171.782, 111.741], [181.482, 111.741], [191.182, 111.741]], [[162.082, 116.316], [171.782, 116.316], [181.482, 116.316], [191.182, 116.316]], [[162.082, 120.892], [171.782, 120.892], [181.482, 120.892], [191.182, 120.892]], [[162.082, 125.467], [171.782, 125.467], [181.482, 125.467], [191.182, 125.467]], [[162.082, 130.042], [171.782, 130.042], [181.482, 130.042], [191.182, 130.042]], [[162.082, 134.618], [171.782, 134.618], [181.482, 134.618], [191.182, 134.618]], [[162.082, 139.193], [171.782, 139.193], [181.482, 139.193], [191.182, 139.193]], [[162.082, 143.768], [171.782, 143.768], [181.482, 143.768], [191.182, 143.768]], [[162.082, 148.344], [171.782, 148.344], [181.482, 148.344], [191.182, 148.344]], [[162.082, 152.919], [171.782, 152.919], [181.482, 152.919], [191.182, 152.919]]], "p2": [[[[23.035, 179.659], [32.506, 179.659]], [[23.035, 184.206], [32.506, 184.206]], [[23.035, 188.753], [32.506, 188.753]], [[23.035, 193.3], [32.506, 193.3]]], [[[42.212, 179.659], [51.918, 179.659]], [[42.212, 184.206], [51.918, 184.206]], [[42.212, 188.753], [51.918, 188.753]], [[42.212, 193.3], [51.918, 193.3]]], [[[69.471, 179.659], [78.941, 179.659]], [[69.471, 184.206], [78.941, 184.206]], [[69.471, 188.753], [78.941, 188.753]], [[69.471, 193.3], [78.941, 193.3]]], [[[88.647, 179.659], [98.341, 179.659]], [[88.647, 184.206], [98.341, 184.206]], [[88.647, 188.753], [98.341, 188.753]], [[88.647, 193.3], [98.341, 193.3]]], [[[115.906, 179.659], [125.376, 179.659]], [[115.906, 184.206], [125.376, 184.206]], [[115.906, 188.753], [125.376, 188.753]], [[115.906, 193.3], [125.376, 193.3]]], [[[135.082, 179.659], [144.776, 179.659]], [[135.082, 184.206], [144.776, 184.206]], [[135.082, 188.753], [144.776, 188.753]], [[135.082, 193.3], [144.776, 193.3]]], [[[162.329, 179.659], [171.8, 179.659]], [[162.329, 184.206], [171.8, 184.206]], [[162.329, 188.753], [171.8, 188.753]], [[162.329, 193.3], [171.8, 193.3]]], [[[181.506, 179.659], [191.2, 179.659]], [[181.506, 184.206], [191.2, 184.206]], [[181.506, 188.753], [191.2, 188.753]], [[181.506, 193.3], [191.2, 193.3]]]], "p3": [[[[22.812, 220.553], null, [22.812, 229.788], [22.812, 234.341], [22.812, 238.882], [22.812, 243.435], [22.812, 247.988], [22.812, 252.541], [22.812, 257.082], [22.812, 261.635], [22.812, 266.188], [22.812, 270.741]], [null, [27.435, 225.165], [27.435, 229.788], [27.435, 234.341], [27.435, 238.882], [27.435, 243.435], [27.435, 247.988], [27.435, 252.541], [27.435, 257.082], [27.435, 261.635], [27.435, 266.188], [27.435, 270.741]], [null, [32.059, 225.165], [32.059, 229.788], [32.059, 234.341], [32.059, 238.882], [32.059, 243.435], [32.059, 247.988], [32.059, 252.541], [32.059, 257.082], [32.059, 261.635], [32.059, 266.188], [32.059, 270.741]], [null, null, [36.682, 229.788], [36.682, 234.341], [36.682, 238.882], [36.682, 243.435], [36.682, 247.988], [36.682, 252.541], [36.682, 257.082], [36.682, 261.635], [36.682, 266.188], [36.682, 270.741]]], [[[53.188, 220.553], null, [53.188, 229.788], [53.188, 234.341], [53.188, 238.882], [53.188, 243.435], [53.188, 247.988], [53.188, 252.541], [53.188, 257.082], [53.188, 261.635], [53.188, 266.188], [53.188, 270.741]], [null, [57.812, 225.165], [57.812, 229.788], [57.812, 234.341], [57.812, 238.882], [57.812, 243.435], [57.812, 247.988], [57.812, 252.541], [57.812, 257.082], [57.812, 261.635], [57.812, 266.188], [57.812, 270.741]], [null, [62.435, 225.165], [62.435, 229.788], [62.435, 234.341], [62.435, 238.882], [62.435, 243.435], [62.435, 247.988], [62.435, 252.541], [62.435, 257.082], [62.435, 261.635], [62.435, 266.188], [62.435, 270.741]], [null, null, [67.059, 229.788], [67.059, 234.341], [67.059, 238.882], [67.059, 243.435], [67.059, 247.988], [67.059, 252.541], [67.059, 257.082], [67.059, 261.635], [67.059, 266.188], [67.059, 270.741]]], [[[83.565, 220.553], null, [83.565, 229.788], [83.565, 234.341], [83.565, 238.882], [83.565, 243.435], [83.565, 247.988], [83.565, 252.541], [83.565, 257.082], [83.565, 261.635], [83.565, 266.188], [83.565, 270.741]], [null, [88.188, 225.165], [88.188, 229.788], [88.188, 234.341], [88.188, 238.882], [88.188, 243.435], [88.188, 247.988], [88.188, 252.541], [88.188, 257.082], [88.188, 261.635], [88.188, 266.188], [88.188, 270.741]], [null, [92.812, 225.165], [92.812, 229.788], [92.812, 234.341], [92.812, 238.882], [92.812, 243.435], [92.812, 247.988], [92.812, 252.541], [92.812, 257.082], [92.812, 261.635], [92.812, 266.188], [92.812, 270.741]], [null, null, [97.435, 229.788], [97.435, 234.341], [97.435, 238.882], [97.435, 243.435], [97.435, 247.988], [97.435, 252.541], [97.435, 257.082], [97.435, 261.635], [97.435, 266.188], [97.435, 270.741]]], [[[113.941, 220.553], null, [113.941, 229.788], [113.941, 234.341], [113.941, 238.882], [113.941, 243.435], [113.941, 247.988], [113.941, 252.541], [113.941, 257.082], [113.941, 261.635], [113.941, 266.188], [113.941, 270.741]], [null, [118.565, 225.165], [118.565, 229.788], [118.565, 234.341], [118.565, 238.882], [118.565, 243.435], [118.565, 247.988], [118.565, 252.541], [118.565, 257.082], [118.565, 261.635], [118.565, 266.188], [118.565, 270.741]], [null, [123.188, 225.165], [123.188, 229.788], [123.188, 234.341], [123.188, 238.882], [123.188, 243.435], [123.188, 247.988], [123.188, 252.541], [123.188, 257.082], [123.188, 261.635], [123.188, 266.188], [123.188, 270.741]], [null, null, [127.812, 229.788], [127.812, 234.341], [127.812, 238.882], [127.812, 243.435], [127.812, 247.988], [127.812, 252.541], [127.812, 257.082], [127.812, 261.635], [127.812, 266.188], [127.812, 270.741]]], [[[144.318, 220.553], null, [144.318, 229.788], [144.318, 234.341], [144.318, 238.882], [144.318, 243.435], [144.318, 247.988], [144.318, 252.541], [144.318, 257.082], [144.318, 261.635], [144.318, 266.188], [144.318, 270.741]], [null, [148.941, 225.165], [148.941, 229.788], [148.941, 234.341], [148.941, 238.882], [148.941, 243.435], [148.941, 247.988], [148.941, 252.541], [148.941, 257.082], [148.941, 261.635], [148.941, 266.188], [148.941, 270.741]], [null, [153.565, 225.165], [153.565, 229.788], [153.565, 234.341], [153.565, 238.882], [153.565, 243.435], [153.565, 247.988], [153.565, 252.541], [153.565, 257.082], [153.565, 261.635], [153.565, 266.188], [153.565, 270.741]], [null, null, [158.188, 229.788], [158.188, 234.341], [158.188, 238.882], [158.188, 243.435], [158.188, 247.988], [158.188, 252.541], [158.188, 257.082], [158.188, 261.635], [158.188, 266.188], [158.188, 270.741]]], [[[174.694, 220.553], null, [174.694, 229.788], [174.694, 234.341], [174.694, 238.882], [174.694, 243.435], [174.694, 247.988], [174.694, 252.541], [174.694, 257.082], [174.694, 261.635], [174.694, 266.188], [174.694, 270.741]], [null, [179.318, 225.165], [179.318, 229.788], [179.318, 234.341], [179.318, 238.882], [179.318, 243.435], [179.318, 247.988], [179.318, 252.541], [179.318, 257.082], [179.318, 261.635], [179.318, 266.188], [179.318, 270.741]], [null, [183.941, 225.165], [183.941, 229.788], [183.941, 234.341], [183.941, 238.882], [183.941, 243.435], [183.941, 247.988], [183.941, 252.541], [183.941, 257.082], [183.941, 261.635], [183.941, 266.188], [183.941, 270.741]], [null, null, [188.565, 229.788], [188.565, 234.341], [188.565, 238.882], [188.565, 243.435], [188.565, 247.988], [188.565, 252.541], [188.565, 257.082], [188.565, 261.635], [188.565, 266.188], [188.565, 270.741]]]], "r": 1.6, "mau": "qm2025", "hop_kq": [15.0, 34.0, 56.0, 86.0]}, "khoa": {}, "cham": {}, "nguong": 0.45, "bi_mat": "", "ds_lop": {}, "pwa": true};
+/* ===================== LOI (không dùng DOM, kiểm thử bằng node) ===================== */
+const TL = 6;
+const DINH_VI = [[12.0, 17.65], [197.65, 17.65], [12.0, 279.5], [197.65, 279.5]];   // tl, tr, bl, br (mm)
+const PX_MM = 1785 / 210;
+const O_NHO = [[1251,294],[1516,294],[1251,805],[1516,805],[102,846],[497,846],[892,846],[1681,846],[102,1370],[497,1370],[892,1370],[1286,1370],[365,1704],[497,1704],[628,1704],[1154,1704],[1286,1704],[1418,1704],[365,2376],[628,2376],[892,2376],[1154,2376],[1418,2376]];
+const KY_HIEU = ["-", ",", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const CHAM_MAC_DINH = {diem_tn: 0.25, diem_tln: 0.5, ds_che_do: "y", diem_y: 0.25};
+
+function xamHoa(img) {
+  const n = img.width * img.height, g = new Float32Array(n), d = img.data;
+  for (let i = 0, j = 0; i < n; i++, j += 4) g[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2];
+  return g;
+}
+function lamMo3(g, w, h) {
+  const t = new Float32Array(g.length), o = new Float32Array(g.length);
+  for (let y = 0; y < h; y++) { const r = y * w;
+    for (let x = 0; x < w; x++) { const a = g[r + (x > 0 ? x - 1 : 0)], b = g[r + x], c = g[r + (x < w - 1 ? x + 1 : x)]; t[r + x] = (a + 2 * b + c) / 4; } }
+  for (let y = 0; y < h; y++) { const y0 = (y > 0 ? y - 1 : 0) * w, y1 = y * w, y2 = (y < h - 1 ? y + 1 : y) * w;
+    for (let x = 0; x < w; x++) o[y1 + x] = (t[y0 + x] + 2 * t[y1 + x] + t[y2 + x]) / 4; }
+  return o;
+}
+function thuNhoTb(g, w, h, s) {
+  const ws = Math.ceil(w / s), hs = Math.ceil(h / s), o = new Float32Array(ws * hs);
+  for (let y = 0; y < hs; y++) for (let x = 0; x < ws; x++) {
+    let tong = 0, dem = 0;
+    for (let yy = y * s; yy < Math.min(h, y * s + s); yy++) for (let xx = x * s; xx < Math.min(w, x * s + s); xx++) { tong += g[yy * w + xx]; dem++; }
+    o[y * ws + x] = tong / dem;
+  }
+  return [o, ws, hs];
+}
+function locCucTri(src, w, h, r, max) {      // dãn (max) hoặc co (min) ảnh theo ô vuông bán kính r, tách ngang/dọc
+  const t = new Float32Array(src.length), o = new Float32Array(src.length);
+  for (let y = 0; y < h; y++) { const hr = y * w;
+    for (let x = 0; x < w; x++) { let v = src[hr + x];
+      for (let k = Math.max(0, x - r); k <= Math.min(w - 1, x + r); k++) { const u = src[hr + k]; if (max ? u > v : u < v) v = u; }
+      t[hr + x] = v; } }
+  for (let x = 0; x < w; x++)
+    for (let y = 0; y < h; y++) { let v = t[y * w + x];
+      for (let k = Math.max(0, y - r); k <= Math.min(h - 1, y + r); k++) { const u = t[k * w + x]; if (max ? u > v : u < v) v = u; }
+      o[y * w + x] = v; }
+  return o;
+}
+function gaussTach(src, w, h, sigma) {
+  const r = Math.max(1, Math.ceil(3 * sigma)), ker = new Float32Array(2 * r + 1); let s = 0;
+  for (let i = -r; i <= r; i++) { ker[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma)); s += ker[i + r]; }
+  for (let i = 0; i < ker.length; i++) ker[i] /= s;
+  const t = new Float32Array(src.length), o = new Float32Array(src.length);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = 0;
+    for (let k = -r; k <= r; k++) { const xx = Math.min(w - 1, Math.max(0, x + k)); v += ker[k + r] * src[y * w + xx]; } t[y * w + x] = v; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = 0;
+    for (let k = -r; k <= r; k++) { const yy = Math.min(h - 1, Math.max(0, y + k)); v += ker[k + r] * t[yy * w + x]; } o[y * w + x] = v; }
+  return o;
+}
+function chuanHoaNen(g, w, h) {      // chia cho nền giấy (ước lượng bằng phép đóng ảnh ở độ phân giải thấp)
+  const k = Math.max(15, ((Math.floor(Math.min(h, w) / 12)) | 1)), s = 4;
+  let [sm, ws, hs] = thuNhoTb(g, w, h, s);
+  const r = Math.max(1, Math.round(k / 2 / s));
+  sm = locCucTri(sm, ws, hs, r, true); sm = locCucTri(sm, ws, hs, r, false);
+  sm = gaussTach(sm, ws, hs, Math.max(1, k / 4 / s));
+  const o = new Float32Array(g.length);
+  for (let y = 0; y < h; y++) {
+    const fy = Math.min(hs - 1, Math.max(0, (y + 0.5) / s - 0.5)), y0 = Math.floor(fy), y1 = Math.min(hs - 1, y0 + 1), ty = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = Math.min(ws - 1, Math.max(0, (x + 0.5) / s - 0.5)), x0 = Math.floor(fx), x1 = Math.min(ws - 1, x0 + 1), tx = fx - x0;
+      const bg = (sm[y0 * ws + x0] * (1 - tx) + sm[y0 * ws + x1] * tx) * (1 - ty) + (sm[y1 * ws + x0] * (1 - tx) + sm[y1 * ws + x1] * tx) * ty;
+      const v = g[y * w + x] / Math.max(bg, 1); o[y * w + x] = v > 1.2 ? 1.2 : v;
+    }
+  }
+  return o;
+}
+function dongNhiPhan3(m, w, h) {   // đóng ảnh nhị phân 3x3 (dãn rồi co)
+  const dan = (src, max) => { const t = new Uint8Array(src.length), o = new Uint8Array(src.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = src[y * w + x];
+      for (let k = Math.max(0, x - 1); k <= Math.min(w - 1, x + 1); k++) { const u = src[y * w + k]; v = max ? (v | u) : (v & u); } t[y * w + x] = v; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = t[y * w + x];
+      for (let k = Math.max(0, y - 1); k <= Math.min(h - 1, y + 1); k++) { const u = t[k * w + x]; v = max ? (v | u) : (v & u); } o[y * w + x] = v; }
+    return o; };
+  return dan(dan(m, true), false);
+}
+function voBoLoi(pts) {            // bao lồi (Andrew), pts: [[x,y],...]
+  pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = []; for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  const up = []; for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+function dienTichDa(hl) { let s = 0; for (let i = 0; i < hl.length; i++) { const a = hl[i], b = hl[(i + 1) % hl.length]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s) / 2; }
+function chuViDa(hl) { let s = 0; for (let i = 0; i < hl.length; i++) { const a = hl[i], b = hl[(i + 1) % hl.length]; s += Math.hypot(a[0] - b[0], a[1] - b[1]); } return s; }
+function hinhChuNhatNhoNhat(hl) {  // diện tích khung chữ nhật nhỏ nhất bao bao lồi (quay theo từng cạnh)
+  let tot = Infinity;
+  for (let i = 0; i < hl.length; i++) {
+    const a = hl[i], b = hl[(i + 1) % hl.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
+    let mn1 = Infinity, mx1 = -Infinity, mn2 = Infinity, mx2 = -Infinity;
+    for (const p of hl) { const u = p[0] * ux + p[1] * uy, v = -p[0] * uy + p[1] * ux; if (u < mn1) mn1 = u; if (u > mx1) mx1 = u; if (v < mn2) mn2 = v; if (v > mx2) mx2 = v; }
+    const dt = (mx1 - mn1 + 1) * (mx2 - mn2 + 1); if (dt < tot) tot = dt;
+  }
+  return tot;
+}
+function ungVienVuong(chuan, w, h) {        // các khối đen đặc, gần vuông (ô định vị)
+  const g = new Float32Array(chuan.length);
+  const m0 = new Uint8Array(chuan.length); for (let i = 0; i < m0.length; i++) m0[i] = chuan[i] < 0.55 ? 1 : 0;
+  const m = dongNhiPhan3(m0, w, h), vis = new Uint8Array(m.length), q = new Int32Array(m.length), ung = [];
+  const aMin = 0.00008 * h * w, aMax = 0.01 * h * w;
+  for (let s0 = 0; s0 < m.length; s0++) {
+    if (!m[s0] || vis[s0]) continue;
+    let qs = 0, qe = 0; q[qe++] = s0; vis[s0] = 1;
+    while (qs < qe) { const p = q[qs++], x = p % w, y = (p - x) / w;
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= w) continue; const pp = yy * w + xx; if (m[pp] && !vis[pp]) { vis[pp] = 1; q[qe++] = pp; } } } }
+    const dt = qe;
+    if (dt < aMin || dt > aMax) continue;
+    let x0 = w, x1 = 0, y0 = h, y1 = 0, sx = 0, sy = 0; const bien = [];
+    for (let i = 0; i < qe; i++) { const p = q[i], x = p % w, y = (p - x) / w;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; sx += x; sy += y;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 || !m[p - 1] || !m[p + 1] || !m[p - w] || !m[p + w]) bien.push([x, y]); }
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (bw < 4 || bh < 4 || !(bw / bh > 0.6 && bw / bh < 1.6)) continue;
+    const hl = voBoLoi(bien); if (hl.length < 3) continue;
+    const hull = dienTichDa(hl) + chuViDa(hl) / 2 + 1;
+    if (dt / hull < 0.9) continue;
+    if (dt / hinhChuNhatNhoNhat(hl) < 0.8) continue;
+    ung.push([dt, sx / dt, sy / dt]);
+  }
+  return ung;
+}
+function tinhHomog(src, dst) {            // 4 điểm src -> dst, trả về mảng 9 phần tử
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) { const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v); }
+  const n = 8; for (let i = 0; i < n; i++) A[i].push(b[i]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    if (Math.abs(A[p][c]) < 1e-12) return null;
+    [A[c], A[p]] = [A[p], A[c]];
+    for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k]; }
+  }
+  const hh = []; for (let i = 0; i < n; i++) hh.push(A[i][n] / A[i][i]); hh.push(1); return hh;
+}
+function nghichDao3(m) {
+  const [a, b, c, d, e, f, g, h, i] = m, A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-18) return null;
+  return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+}
+function anhX(H, x, y) { const w = H[6] * x + H[7] * y + H[8]; return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w]; }
+function tiLeDen(dark, W, Hh, Hinv, cxmm, cymm, rpx) {      // tỉ lệ pixel đen trong hình tròn (toạ độ chuẩn TL px/mm)
+  const cx = Math.round(cxmm * TL), cy = Math.round(cymm * TL), r = Math.round(rpx); let dem = 0, den = 0;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (dx * dx + dy * dy > r * r) continue;
+    const [sx, sy] = anhX(Hinv, cx + dx, cy + dy), ix = Math.round(sx), iy = Math.round(sy);
+    if (ix < 0 || iy < 0 || ix >= W || iy >= Hh) continue;
+    dem++; if (dark[iy * W + ix]) den++;
+  }
+  return dem ? den / dem : 0;
+}
+function timBonODinhVi(chuan, w, h) {
+  const ung = ungVienVuong(chuan, w, h).sort((a, b) => b[0] - a[0]).slice(0, 10);
+  if (ung.length < 4) throw new Error("Không tìm thấy đủ 4 ô vuông đen ở bốn góc phiếu (chụp thấy cả bốn góc, đủ sáng, không bị che)");
+  let tot = null;
+  for (let a = 0; a < ung.length; a++) for (let b = a + 1; b < ung.length; b++) for (let c = b + 1; c < ung.length; c++) for (let d = c + 1; d < ung.length; d++) {
+    const bo = [ung[a], ung[b], ung[c], ung[d]], dts = bo.map(u => u[0]);
+    if (Math.min(...dts) < 0.55 * Math.max(...dts)) continue;
+    const hl = voBoLoi(bo.map(u => [u[1], u[2]]));
+    if (hl.length !== 4) continue;
+    const dt = dienTichDa(hl); if (!tot || dt > tot[0]) tot = [dt, bo];
+  }
+  if (!tot) throw new Error("Bốn ô vuông ở góc không rõ (chụp gần hơn hoặc rõ nét hơn, đừng để bóng che góc phiếu)");
+  const pts = tot[1].map(u => [u[1], u[2]]), tx = pts.reduce((s, p) => s + p[0], 0) / 4, ty = pts.reduce((s, p) => s + p[1], 0) / 4;
+  return pts.slice().sort((p, q) => Math.atan2(p[1] - ty, p[0] - tx) - Math.atan2(q[1] - ty, q[0] - tx));
+}
+function chuanDapSo(s) {
+  let t = String(s == null ? "" : s).replace(/\$/g, "").replace(/ /g, "").trim();
+  t = t.replace(/\\[,;:!]|\\(?:mathrm|text)(?=\{)/g, "");
+  t = t.split("{,}").join(",").split("{.}").join(".").replace(/−/g, "-").replace(/–/g, "-");
+  t = t.replace(/\{([0-9,.\-]*)\}/g, "$1").replace(/,/g, ".");
+  if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(t)) return [parseFloat(t), t];
+  return [null, t.toLowerCase()];
+}
+function soKhopDapSo(a, b) {
+  const [fa, sa] = chuanDapSo(a), [fb, sb] = chuanDapSo(b);
+  if (!sb || !sa) return false;
+  if (fa !== null && fb !== null) return Math.abs(fa - fb) < 1e-6;
+  return sa === sb;
+}
+function docPhieu(img, BC, nguong) {
+  /* img: {width,height,data RGBA} đã thu nhỏ (cạnh dài ~2000 px). BC: bố cục phiếu (mm). Trả về {ok, loi, sbd, ma, p1, p2, p3, Hinv, dark...} */
+  const w = img.width, h = img.height, kq = {ok: false, loi: ""};
+  try {
+    const xam = lamMo3(xamHoa(img), w, h), chuan = chuanHoaNen(xam, w, h);
+    const c4 = timBonODinhVi(chuan, w, h);
+    const dark = new Uint8Array(chuan.length); for (let i = 0; i < dark.length; i++) dark[i] = chuan[i] < 0.6 ? 1 : 0;
+    const dst = DINH_VI.map(p => [p[0] * TL, p[1] * TL]); let tot = null;
+    for (let k = 0; k < 4; k++) {
+      const s = [c4[k], c4[(k + 1) % 4], c4[(k + 2) % 4], c4[(k + 3) % 4]], src = [s[0], s[1], s[3], s[2]];
+      const H = tinhHomog(src, dst); if (!H) continue; const Hi = nghichDao3(H); if (!Hi) continue;
+      let t = 0; for (const [x, y] of O_NHO) t += tiLeDen(dark, w, h, Hi, x / PX_MM, y / PX_MM, 1.0 * TL);
+      t /= O_NHO.length; if (!tot || t > tot[0]) tot = [t, H, Hi];
+    }
+    if (!tot || tot[0] < 0.35) throw new Error("Ảnh không giống mẫu phiếu QM 2025 (không khớp các ô vuông định vị)");
+    const Hinv = tot[2], rpx = 0.62 * BC.r * TL;
+    const ti = xy => xy ? tiLeDen(dark, w, h, Hinv, xy[0], xy[1], rpx) : 0;
+    const chon = (ds, nhan) => { const da = []; ds.forEach((v, i) => { if (v >= nguong) da.push(i); }); return !da.length ? "" : da.length > 1 ? "*" : nhan[da[0]]; };
+    const so = cots => cots.map(cot => { const v = chon(cot.map(ti), "0123456789"); return v ? v : "?"; }).join("");
+    kq.sbd = so(BC.sbd); kq.ma = so(BC.ma);
+    kq.p1 = BC.p1.map(ds => chon(ds.map(ti), "ABCD"));
+    kq.p2 = BC.p2.map(ds => ds.map(([dd, ss]) => { const v = chon([ti(dd), ti(ss)], "ĐS"); return v === "Đ" || v === "S" ? v : (v === "" ? "-" : "?"); }).join(""));
+    kq.p3 = BC.p3.map(cots => { let s = "", hong = false; cots.forEach(cot => { const v = chon(cot.map(ti), KY_HIEU); if (v === "*") hong = true; else s += v; }); return s + (hong ? "*" : ""); });
+    kq.Hinv = Hinv; kq.ok = true;
+  } catch (e) { kq.loi = e.message; }
+  return kq;
+}
+function diemDS(n, cd) { return cd.ds_che_do === "chinh_thuc" ? ({0: 0, 1: 0.1, 2: 0.25, 3: 0.5, 4: 1.0}[n] || 0) : n * parseFloat(cd.diem_y); }
+function cham(doc, khoa, cd, maMacDinh) {
+  cd = Object.assign({}, CHAM_MAC_DINH, cd || {});
+  const kq = {canh_bao: [], ma_dung: null, nguon: "Bộ đáp án"}, ma = doc.ma || "";
+  let maDung = null;
+  if (doc.khoa_qr) { maDung = doc.khoa_qr[0]; khoa = {[maDung]: doc.khoa_qr[1]}; kq.nguon = "QR"; }
+  else if (ma && !ma.includes("?")) {
+    for (const k of Object.keys(khoa)) if (k === ma || (/^\d+$/.test(k) && /^\d+$/.test(ma) && parseInt(k, 10) === parseInt(ma, 10))) { maDung = k; break; }
+    if (maDung === null) kq.canh_bao.push(`Mã đề ${ma} không có trong bộ đáp án`);
+  } else kq.canh_bao.push("Không đọc được mã đề");
+  if (maDung === null && maMacDinh && khoa[maMacDinh]) { maDung = maMacDinh; kq.canh_bao.push(`Chấm theo mã đề ${maDung}`); }
+  else if (maDung === null && Object.keys(khoa).length === 1) { maDung = Object.keys(khoa)[0]; kq.canh_bao.push(`Chấm theo mã đề ${maDung} (bộ đáp án chỉ có một mã)`); }
+  kq.ma_dung = maDung;
+  if (!doc.sbd || doc.sbd.includes("?")) kq.canh_bao.push("Không đọc được số báo danh");
+  const k = maDung !== null ? khoa[maDung] : null;
+  const n = k ? [k["1"].length, k["2"].length, k["3"].length] : [doc.p1.length, doc.p2.length, doc.p3.length];
+  [["p1", "Phần I"], ["p2", "Phần II"], ["p3", "Phần III"]].forEach(([l, ten], i) => doc[l].slice(0, n[i]).forEach((v, q) => { if (v.includes("*") || v.includes("?")) kq.canh_bao.push(`${ten} câu ${q + 1}: tô nhiều ô`); }));
+  Object.assign(kq, {diem_1: 0, diem_2: 0, diem_3: 0, so_dung_1: 0, so_dung_3: 0, so_y_dung_2: 0, tong: 0, chi_tiet: {p1: [], p2: [], p3: []}});
+  if (!k) return kq;
+  doc.p1.slice(0, n[0]).forEach((tl, q) => { const dap = k["1"][q] || "", dung = !!dap && tl === dap; if (!dap) kq.canh_bao.push(`Phần I câu ${q + 1}: chưa có đáp án`);
+    kq.chi_tiet.p1.push({tra_loi: tl, dap_an: dap, dung}); if (dung) kq.so_dung_1++; });
+  kq.diem_1 = kq.so_dung_1 * parseFloat(cd.diem_tn);
+  doc.p2.slice(0, n[1]).forEach((tl, q) => { const dap = ((k["2"][q] || "") + "----").slice(0, 4); if (!dap.replace(/-/g, "")) kq.canh_bao.push(`Phần II câu ${q + 1}: chưa có đáp án`);
+    const dungs = [0, 1, 2, 3].map(t => tl[t] === dap[t] && "ĐS".includes(dap[t]) && dap[t] !== "-"); kq.chi_tiet.p2.push({tra_loi: tl, dap_an: dap, dung: dungs});
+    const c = dungs.filter(Boolean).length; kq.so_y_dung_2 += c; kq.diem_2 += diemDS(c, cd); });
+  doc.p3.slice(0, n[2]).forEach((tl, q) => { const dap = k["3"][q] || "", dung = !!dap && !tl.includes("*") && soKhopDapSo(tl, dap); if (!dap) kq.canh_bao.push(`Phần III câu ${q + 1}: chưa có đáp án`);
+    kq.chi_tiet.p3.push({tra_loi: tl, dap_an: dap, dung}); if (dung) kq.so_dung_3++; });
+  kq.diem_3 = kq.so_dung_3 * parseFloat(cd.diem_tln);
+  kq.tong = Math.round((kq.diem_1 + kq.diem_2 + kq.diem_3) * 1e4) / 1e4;
+  return kq;
+}
+function khoaTuCsv(vb) {
+  const dong = vb.replace(/^﻿/, "").split(/\r?\n/).filter(x => x.trim()).map(r => { const o = []; let c = "", q = false;
+    for (const ch of r) { if (ch === '"') q = !q; else if (ch === "," && !q) { o.push(c); c = ""; } else c += ch; } o.push(c); return o; });
+  if (!dong.length) return {};
+  const ma = dong[0].slice(2).map(x => x.trim()), kq = {}; ma.forEach(m => { if (m) kq[m] = {"1": [], "2": [], "3": []}; });
+  const mp = {"PHẦNI": "1", "PHẦNII": "2", "PHẦNIII": "3", "PHANI": "1", "PHANII": "2", "PHANIII": "3"};
+  for (const d of dong.slice(1)) { if (d.length < 3) continue; const p = mp[d[0].trim().toUpperCase().replace(/ /g, "")]; if (!p) continue;
+    ma.forEach((m, i) => { if (m) kq[m][p].push((d[2 + i] || "").trim()); }); }
+  return kq;
+}
+/* ---- SHA-256 / HMAC (chạy được cả khi trang không phải https) + giải mã QR đáp án ---- */
+const K256 = new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+function sha256(bytes) {
+  const l = bytes.length, n = (((l + 9 + 63) >> 6) << 6), m = new Uint8Array(n); m.set(bytes); m[l] = 0x80;
+  const dv = new DataView(m.buffer); dv.setUint32(n - 4, (l * 8) >>> 0); dv.setUint32(n - 8, Math.floor(l * 8 / 4294967296));
+  const H = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]), w = new Uint32Array(64);
+  const R = (x, k) => (x >>> k) | (x << (32 - k));
+  for (let o = 0; o < n; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + 4 * i);
+    for (let i = 16; i < 64; i++) { const s0 = R(w[i-15], 7) ^ R(w[i-15], 18) ^ (w[i-15] >>> 3), s1 = R(w[i-2], 17) ^ R(w[i-2], 19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0; }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) { const S1 = R(e, 6) ^ R(e, 11) ^ R(e, 25), ch = (e & f) ^ (~e & g), t1 = (h + S1 + ch + K256[i] + w[i]) >>> 0, S0 = R(a, 2) ^ R(a, 13) ^ R(a, 22), mj = (a & b) ^ (a & c) ^ (b & c), t2 = (S0 + mj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0; }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  const out = new Uint8Array(32), ov = new DataView(out.buffer); for (let i = 0; i < 8; i++) ov.setUint32(4 * i, H[i]); return out;
+}
+function hmac256(key, msg) {
+  if (key.length > 64) key = sha256(key);
+  const k = new Uint8Array(64); k.set(key); const ip = new Uint8Array(64 + msg.length), op = new Uint8Array(96);
+  for (let i = 0; i < 64; i++) { ip[i] = k[i] ^ 0x36; op[i] = k[i] ^ 0x5c; }
+  ip.set(msg, 64); op.set(sha256(ip), 64); return sha256(op);
+}
+function giaiMaKhoa(chuoi, biMat) {      // ngược lại của ma_hoa_khoa (Python); trả về [mã đề, {"1":[],"2":[],"3":[]}] hoặc null
+  try {
+    const te = new TextEncoder(), td = new TextDecoder("utf-8", {fatal: true}), key = te.encode(biMat);
+    let s = String(chuoi).trim().replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "=";
+    const bin = atob(s), raw = Uint8Array.from(bin, c => c.charCodeAt(0));
+    if (raw.length < 10) return null;
+    const nonce = raw.slice(0, 3), ct = raw.slice(3, raw.length - 3), mac = raw.slice(raw.length - 3);
+    const m2 = hmac256(key, Uint8Array.from([...nonce, ...ct]));
+    if (mac[0] !== m2[0] || mac[1] !== m2[1] || mac[2] !== m2[2]) return null;
+    const ks = []; for (let i = 0; ks.length < ct.length; i++) ks.push(...hmac256(key, Uint8Array.from([...nonce, (i >> 8) & 255, i & 255])));
+    const b = ct.map((x, i) => x ^ ks[i]);
+    if (b[0] !== 1) return null;
+    const lm = b[1], ma = td.decode(b.slice(2, 2 + lm)); let i = 2 + lm; const n1 = b[i], n2 = b[i + 1], n3 = b[i + 2]; i += 3;
+    const sb = (n1 + 1) >> 1, tn = []; for (const by of b.slice(i, i + sb)) tn.push(by >> 4, by & 15);
+    const tn2 = tn.slice(0, n1).map(v => v < 4 ? "ABCD"[v] : ""); i += sb;
+    const ds = []; for (const by of b.slice(i, i + n2)) ds.push([6, 4, 2, 0].map(sh => ({1: "Đ", 2: "S"}[(by >> sh) & 3] || "-")).join(""));
+    i += n2; let tln = n3 ? td.decode(b.slice(i)).split("\x1f") : []; while (tln.length < n3) tln.push(""); tln = tln.slice(0, n3);
+    return [ma, {"1": tn2, "2": ds, "3": tln}];
+  } catch (e) { return null; }
+}
+function nanAnh(img, Hinv, W, Hh) {      // nắn phiếu về khung chuẩn (bilinear) -> RGBA W x Hh
+  const out = new Uint8ClampedArray(W * Hh * 4), w = img.width, h = img.height, d = img.data;
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const [sx, sy] = anhX(Hinv, x, y), o = (y * W + x) * 4;
+    if (sx < 0 || sy < 0 || sx >= w - 1 || sy >= h - 1) { out[o] = out[o + 1] = out[o + 2] = 255; out[o + 3] = 255; continue; }
+    const x0 = sx | 0, y0 = sy | 0, tx = sx - x0, ty = sy - y0, i00 = (y0 * w + x0) * 4, i10 = i00 + 4, i01 = i00 + w * 4, i11 = i01 + 4;
+    for (let c = 0; c < 3; c++) out[o + c] = (d[i00 + c] * (1 - tx) + d[i10 + c] * tx) * (1 - ty) + (d[i01 + c] * (1 - tx) + d[i11 + c] * tx) * ty;
+    out[o + 3] = 255;
+  }
+  return out;
+}
+/* ===================== HẾT LOI ===================== */
+</script>
+<script>
+/* ===================== GIAO DIỆN ===================== */
+const $ = id => document.getElementById(id);
+const BC = DU_LIEU && DU_LIEU.bo_cuc;
+let khoa = {}, cdc = {}, dsLop = {}, biMat = "", ketQua = [], chon = -1;
+function luuLS(k, v) { try { localStorage.setItem("chamdt_" + k, v); } catch (e) {} }
+function docLS(k) { try { return localStorage.getItem("chamdt_" + k); } catch (e) { return null; } }
+function napCaiDat() {
+  let goi = {}; try { goi = JSON.parse(docLS("goi") || "{}") || {}; } catch (e) {}
+  const dl = Object.assign({}, DU_LIEU || {}, goi, {bo_cuc: DU_LIEU && DU_LIEU.bo_cuc});
+  if (DU_LIEU && DU_LIEU.pwa) { $("goi").style.display = "block"; $("goitt").textContent = goi.ten ? "Đang dùng gói đề: " + goi.ten : "Chưa nạp gói đề. Trên máy tính: Phiếu tô › Chấm bài › “Xuất gói đề cho ứng dụng điện thoại”, gửi file về điện thoại rồi bấm nút trên."; }
+  cdc = Object.assign({}, CHAM_MAC_DINH, dl.cham || {});
+  biMat = dl.bi_mat || "";
+  khoa = Object.assign({}, dl.khoa || {});
+  dsLop = Object.assign({}, dl.ds_lop || {});
+  const ck = docLS("khoa"); if (ck) { $("khoa").value = ck; try { Object.assign(khoa, khoaTuCsv(ck)); } catch (e) {} }
+  const cl = docLS("lop"); if (cl) { $("lop").value = cl; Object.assign(dsLop, docLop(cl)); }
+  const ng = docLS("nguong") || (dl.nguong != null ? Math.round(dl.nguong * 100) : 45); $("ngu").value = ng; $("vng").textContent = (ng / 100).toFixed(2);
+  const cd2 = docLS("cd"); if (cd2) try { Object.assign(cdc, JSON.parse(cd2)); } catch (e) {}
+  $("dtn").value = String(cdc.diem_tn).replace(".", ","); $("dtln").value = String(cdc.diem_tln).replace(".", ",");
+  $("dsc").value = cdc.ds_che_do; $("dy").value = String(cdc.diem_y).replace(".", ",");
+  const kr = docLS("ketqua"); if (kr) try { ketQua = JSON.parse(kr); } catch (e) { ketQua = []; }
+  capNhatTT(); veDS();
+}
+function docLop(vb) { const o = {}; vb.split(/\r?\n/).forEach(r => { const m = r.split(/[,;\t]/); if (m.length >= 2 && m[0].trim() && !/báo danh|sbd/i.test(m[0])) { const s = m[0].trim(); o[s] = m.slice(1).join(" ").trim(); if (/^\d+$/.test(s)) o[s.replace(/^0+/, "") || "0"] = o[s]; } }); return o; }
+function tenTheoSBD(sbd) { return !sbd || sbd.includes("?") ? "" : (dsLop[sbd] || dsLop[sbd.replace(/^0+/, "") || "0"] || ""); }
+function capNhatTT() {
+  const ma = Object.keys(khoa);
+  $("tt").textContent = !BC ? "Thiếu dữ liệu bố cục phiếu: hãy mở trang này từ phần mềm trên máy tính." :
+    ma.length ? `Bộ đáp án: ${ma.length} mã đề (${ma.slice(0, 6).join(", ")}${ma.length > 6 ? "..." : ""})` + (biMat ? " · có đọc mã QR" : "") :
+    "Chưa có bộ đáp án: dán CSV ở mục Cài đặt" + (biMat ? ", hoặc dùng phiếu có mã QR." : ".");
+}
+$("ngu").oninput = () => { $("vng").textContent = ($("ngu").value / 100).toFixed(2); };
+$("luu").onclick = () => {
+  const so = s => parseFloat(String(s).replace(",", ".")) || 0;
+  cdc = {diem_tn: so($("dtn").value) || 0.25, diem_tln: so($("dtln").value) || 0.5, ds_che_do: $("dsc").value, diem_y: so($("dy").value) || 0.25};
+  luuLS("cd", JSON.stringify(cdc)); luuLS("nguong", $("ngu").value); luuLS("khoa", $("khoa").value); luuLS("lop", $("lop").value);
+  khoa = Object.assign({}, (DU_LIEU && DU_LIEU.khoa) || {}); try { Object.assign(khoa, khoaTuCsv($("khoa").value)); } catch (e) {}
+  dsLop = Object.assign({}, (DU_LIEU && DU_LIEU.ds_lop) || {}, docLop($("lop").value));
+  capNhatTT(); veDS(); alert("Đã lưu cài đặt.");
+};
+function nguong() { return $("ngu").value / 100; }
+const CDN_JSQR = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+let jsqrCho = null;
+function taiJsQR() {
+  if (window.jsQR) return Promise.resolve(true);
+  if (!jsqrCho) jsqrCho = new Promise(res => { const s = document.createElement("script"); s.src = CDN_JSQR; s.onload = () => res(!!window.jsQR); s.onerror = () => res(false); setTimeout(() => res(!!window.jsQR), 6000); document.head.appendChild(s); });
+  return jsqrCho;
+}
+async function docQR(bmp, doc, t) {     // cắt vùng mã QR từ ảnh gốc (độ phân giải cao) rồi giải mã
+  if (!biMat) return null;
+  const P = 10, x0 = 28.0 - 3, y0 = 9.8 - 3, x1 = 46.5 + 3, y1 = 28.3 + 3, W = Math.round((x1 - x0) * P), H = Math.round((y1 - y0) * P);
+  const f = (cx, cy) => { const [sx, sy] = anhX(doc.Hinv, (x0 + cx / P) * TL, (y0 + cy / P) * TL); return [sx / t, sy / t]; };   // crop px -> ảnh gốc
+  const a = f(0, 0), b = f(W, 0), c = f(0, H);
+  const M = [(b[0] - a[0]) / W, (b[1] - a[1]) / W, (c[0] - a[0]) / H, (c[1] - a[1]) / H, a[0], a[1]];       // crop -> gốc
+  const det = M[0] * M[3] - M[1] * M[2]; if (Math.abs(det) < 1e-12) return null;
+  const iv = [M[3] / det, -M[1] / det, -M[2] / det, M[0] / det]; iv.push(-(iv[0] * M[4] + iv[2] * M[5]), -(iv[1] * M[4] + iv[3] * M[5]));
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const cx = cv.getContext("2d");
+  cx.fillStyle = "#fff"; cx.fillRect(0, 0, W, H); cx.setTransform(iv[0], iv[1], iv[2], iv[3], iv[4], iv[5]); cx.drawImage(bmp, 0, 0); cx.setTransform(1, 0, 0, 1, 0, 0);
+  const txts = [];
+  try { if ("BarcodeDetector" in window) { const r = await new BarcodeDetector({formats: ["qr_code"]}).detect(cv); r.forEach(x => txts.push(x.rawValue)); } } catch (e) {}
+  if (!txts.length && await taiJsQR()) { const id = cx.getImageData(0, 0, W, H), r = window.jsQR(id.data, W, H, {inversionAttempts: "attemptBoth"}); if (r) txts.push(r.data); }
+  for (const s of txts) { const k = giaiMaKhoa(s, biMat); if (k) return k; }
+  return null;
+}
+async function chamMotAnh(file, quet) {
+  const bmp = quet ? await createImageBitmap(file) : await createImageBitmap(file, {imageOrientation: "from-image"});
+  const t = Math.min(1, 2000 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * t), h = Math.round(bmp.height * t);
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const cx = cv.getContext("2d", {willReadFrequently: true}); cx.drawImage(bmp, 0, 0, w, h);
+  const img = cx.getImageData(0, 0, w, h), doc = docPhieu(img, BC, nguong());
+  const d = {ten_file: file.name || "anh", ok: doc.ok, loi: doc.loi, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), tg: Date.now()};
+  if (!(quet && !doc.ok)) { try { d.goc = cv.toDataURL("image/jpeg", 0.85); } catch (e) { d.goc = ""; } }          // ảnh bài làm (để xuất về máy tính)
+  if (!doc.ok) return d;
+  try { doc.khoa_qr = await docQR(bmp, doc, t); } catch (e) { doc.khoa_qr = null; }
+  const ch = cham(doc, khoa, cdc, null);
+  Object.assign(d, {doc, ch, sbd: doc.sbd, ma: doc.ma, tong: ch.tong, nguon: ch.nguon, canh_bao: ch.canh_bao});
+  d.anh = veKetQua(img, doc, ch, BC);
+  return d;
+}
+function veKetQua(img, doc, ch, BC) {   // ảnh phiếu nắn phẳng + vòng tròn: xanh lá đúng, đỏ sai, cam đáp án bị bỏ sót
+  const W = Math.round(210 * TL), H = Math.round(297 * TL), data = nanAnh(img, doc.Hinv, W, H);
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const c = cv.getContext("2d");
+  c.putImageData(new ImageData(data, W, H), 0, 0);
+  const R = Math.round(BC.r * TL), P = xy => [Math.round(xy[0] * TL), Math.round(xy[1] * TL)];
+  const vong = (xy, mau, day, ban) => { const [x, y] = P(xy); c.strokeStyle = mau; c.lineWidth = day || 3; c.beginPath(); c.arc(x, y, ban || R + 3, 0, 7); c.stroke(); };
+  const XANH = "#28a03c", DO = "#e62828", CAM = "#ff8c00", ct = ch.chi_tiet;
+  ct.p1.forEach((d, q) => { const ds = BC.p1[q]; if ("ABCD".includes(d.tra_loi) && d.tra_loi) vong(ds["ABCD".indexOf(d.tra_loi)], d.dung ? XANH : DO); if (d.dap_an && "ABCD".includes(d.dap_an) && !d.dung) vong(ds["ABCD".indexOf(d.dap_an)], CAM, 2, R + 6); });
+  ct.p2.forEach((d, q) => { for (let t = 0; t < 4; t++) { const tl = d.tra_loi[t], da = d.dap_an[t], ds = BC.p2[q][t];
+    if (tl === "Đ" || tl === "S") vong(ds[tl === "Đ" ? 0 : 1], d.dung[t] ? XANH : DO); if ((da === "Đ" || da === "S") && !d.dung[t]) vong(ds[da === "Đ" ? 0 : 1], CAM, 2, R + 6); } });
+  ct.p3.forEach((d, q) => { const ch2 = d.tra_loi.replace("*", "").split(""); BC.p3[q].forEach((cot, i) => { const v = ch2[i], j = KY_HIEU.indexOf(v); if (v && j >= 0 && cot[j]) vong(cot[j], d.dung ? XANH : DO); });
+    if (!d.dung && d.dap_an) { c.fillStyle = CAM; c.font = "bold 22px sans-serif"; const [x, y] = P([BC.p3[q][0][0][0] - 4, BC.p3[q][0][0][1] + 1]); c.fillText("ĐA: " + chuanDapSo(d.dap_an)[1].replace(".", ",").slice(0, 12), x, y); } });
+  const [bx0, by0, bx1, by1] = BC.hop_kq, [ax, ay] = P([bx0, by0]), [ex, ey] = P([bx1, by1]);
+  c.fillStyle = "#fff"; c.fillRect(ax, ay, ex - ax, ey - ay); c.fillStyle = DO; c.font = "bold 34px sans-serif";
+  c.fillText("SBD " + doc.sbd, ax + 8, ay + 40); c.fillText("MÃ " + doc.ma, ax + 8, ay + 84); c.font = "bold 44px sans-serif"; c.fillText("TỔNG " + (+ch.tong.toFixed(2)) + "đ", ax + 8, ay + 138);
+  c.fillStyle = "#444"; c.font = "26px sans-serif"; c.fillText(`I: ${ch.so_dung_1} câu = ${+ch.diem_1.toFixed(2)}`, ax + 8, ay + 180); c.fillText(`II: ${ch.so_y_dung_2} ý = ${+ch.diem_2.toFixed(2)}`, ax + 8, ay + 215); c.fillText(`III: ${ch.so_dung_3} câu = ${+ch.diem_3.toFixed(2)}`, ax + 8, ay + 250);
+  return cv.toDataURL("image/jpeg", 0.85);
+}
+function g2(x) { return String(+x.toFixed(2)).replace(".", ","); }
+function hienKQ(i) {
+  const d = ketQua[i]; chon = i; if (!d) return; veDS();
+  if (!d.ok) { $("kq").innerHTML = '<div class="the loi"><b>Không đọc được phiếu</b><br>' + d.loi + '<br><span class="phu">Chụp lại: đủ 4 góc, đủ sáng, không bị chói.</span></div>'; return; }
+  $("kq").innerHTML = '<div class="the"><div class="diem ok">' + g2(d.tong) + ' điểm</div>' +
+    '<div class="hang"><div><label>Số báo danh</label><input type="text" id="e_sbd" inputmode="numeric" value="' + d.sbd + '"></div><div><label>Mã đề</label><input type="text" id="e_ma" inputmode="numeric" value="' + d.ma + '"></div></div>' +
+    '<button class="nhat" id="e_lai">Chấm lại với SBD/mã đề đã sửa</button>' +
+    '<div class="phu" id="e_ten">' + (tenTheoSBD(d.sbd) || "") + '</div>' +
+    '<div class="luoi"><div>Phần I<b>' + g2(d.diem_1) + '</b></div><div>Phần II<b>' + g2(d.diem_2) + '</b></div><div>Phần III<b>' + g2(d.diem_3) + '</b></div></div>' +
+    (d.canh_bao.length ? '<div class="cb">⚠ ' + d.canh_bao.join("; ") + '</div>' : '') + '<div class="phu">Đáp án từ: ' + (d.nguon || "") + '</div>' + (d.anh ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.anh + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_da_cham.jpg">⬇ Tải ảnh bài đã chấm</a>' + (d.goc ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.goc + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_goc.jpg">⬇ Tải ảnh bài làm (gốc)</a>' : '') + '<img src="' + d.anh + '">' : '<div class="phu">(ảnh bài chấm không lưu sau khi tải lại trang)</div>') + '</div>';
+  try { if (navigator.vibrate) navigator.vibrate(120); $("kq").scrollIntoView({behavior: "smooth", block: "start"}); } catch (e) {}
+  if ($("e_lai")) $("e_lai").onclick = () => { const x = ketQua[chon]; if (!x.doc) { alert("Bài này đã được tải lại từ bộ nhớ, không chấm lại được."); return; }
+    x.doc.sbd = $("e_sbd").value.trim(); x.doc.ma = $("e_ma").value.trim(); const ch = cham(x.doc, khoa, cdc, null);
+    Object.assign(x, {ch, sbd: x.doc.sbd, ma: x.doc.ma, tong: ch.tong, nguon: ch.nguon, canh_bao: ch.canh_bao, diem_1: ch.diem_1, diem_2: ch.diem_2, diem_3: ch.diem_3}); luuKetQua(); hienKQ(chon); };
+}
+function luuKetQua() { luuLS("ketqua", JSON.stringify(ketQua.map(d => ({ten_file: d.ten_file, ok: d.ok, loi: d.loi, sbd: d.sbd, ma: d.ma, tong: d.tong, diem_1: d.diem_1, diem_2: d.diem_2, diem_3: d.diem_3, nguon: d.nguon, canh_bao: d.canh_bao})))); }
+function veDS() {
+  $("n").textContent = ketQua.length; const t = $("ds");
+  t.innerHTML = ketQua.length ? "<tr><th>SBD</th><th>Họ tên</th><th>Mã</th><th>Điểm</th></tr>" : "";
+  ketQua.forEach((d, i) => { const tr = document.createElement("tr"); if (i === chon) tr.className = "chon";
+    tr.innerHTML = "<td>" + (d.ok ? d.sbd : "—") + "</td><td>" + (d.ok ? tenTheoSBD(d.sbd) : '<span class="loi">lỗi</span>') + "</td><td>" + (d.ok ? d.ma : "") + "</td><td><b>" + (d.ok ? g2(d.tong) : "") + "</b></td>";
+    tr.onclick = () => hienKQ(i); t.appendChild(tr); });
+}
+async function xuLy(files) {
+  if (!BC) { alert("Thiếu dữ liệu bố cục phiếu."); return; }
+  if (!Object.keys(khoa).length && !biMat) { alert("Chưa có bộ đáp án. Hãy dán CSV đáp án ở mục Cài đặt."); return; }
+  $("chup").disabled = $("chon").disabled = true;
+  for (let i = 0; i < files.length; i++) {
+    $("chup").textContent = "Đang chấm " + (i + 1) + "/" + files.length + "...";
+    await new Promise(r => setTimeout(r, 30));
+    try { const d = await chamMotAnh(files[i]); ketQua.push(d); hienKQ(ketQua.length - 1); } catch (e) { ketQua.push({ten_file: files[i].name, ok: false, loi: String(e)}); hienKQ(ketQua.length - 1); }
+    luuKetQua();
+  }
+  $("chup").disabled = $("chon").disabled = false; $("chup").textContent = "Chụp phiếu tiếp theo";
+}
+// ---- Quét liên tục bằng camera: tự nhận phiếu, tự chấm, báo điểm, không cần bấm chụp ----
+let quetDang = false, quetLuong = null;
+function tiengBip() { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.15); } catch (e) {} }
+function dungQuet() { quetDang = false; if (quetLuong) { quetLuong.getTracks().forEach(t => t.stop()); quetLuong = null; } $("khung").style.display = "none"; }
+$("quet").onclick = async () => {
+  if (!BC) { alert("Thiếu dữ liệu bố cục phiếu."); return; }
+  if (!Object.keys(khoa).length && !biMat) { alert("Chưa có bộ đáp án. Hãy dán CSV đáp án ở mục Cài đặt."); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Trình duyệt không cho mở camera trực tiếp ở trang này. Hãy dùng nút “Chụp phiếu”, hoặc mở file .html bằng Chrome."); return; }
+  try { quetLuong = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}, width: {ideal: 1920}, height: {ideal: 1080}}, audio: false}); }
+  catch (e) { alert("Không mở được camera: " + (e && e.message || e) + "\nHãy cho phép trình duyệt dùng camera, hoặc dùng nút “Chụp phiếu”."); return; }
+  const v = $("vid"); v.srcObject = quetLuong; await v.play().catch(() => {});
+  $("khung").style.display = "flex"; quetDang = true;
+  const cv = document.createElement("canvas"); let ungVien = "", hong = 9, daNhan = "";
+  while (quetDang) {
+    await new Promise(r => setTimeout(r, 350));
+    if (!quetDang || !v.videoWidth) continue;
+    cv.width = v.videoWidth; cv.height = v.videoHeight; cv.getContext("2d").drawImage(v, 0, 0);
+    let d; try { d = await chamMotAnh(cv, true); } catch (e) { continue; }
+    if (!d.ok) { if (++hong >= 2) { ungVien = ""; daNhan = ""; } $("qtt").textContent = "Đưa cả phiếu vào khung, thấy rõ 4 ô vuông đen ở góc"; continue; }
+    const kh = d.sbd + "|" + d.ma + "|" + d.tong;
+    if (daNhan === kh && hong < 2) { $("qtt").textContent = "Đã chấm SBD " + d.sbd + ": " + g2(d.tong) + " điểm. Đưa phiếu tiếp theo vào"; continue; }
+    hong = 0;
+    if (kh !== ungVien) { ungVien = kh; $("qtt").textContent = "Đang đọc phiếu..."; continue; }   // cần 2 lần đọc giống nhau liên tiếp mới nhận
+    d.ten_file = "quet_" + (ketQua.length + 1) + ".jpg"; ketQua.push(d); luuKetQua(); hienKQ(ketQua.length - 1);
+    daNhan = kh; ungVien = ""; tiengBip(); try { navigator.vibrate && navigator.vibrate(150); } catch (e) {}
+    $("qtt").textContent = "✓ SBD " + d.sbd + " · Mã " + d.ma + " · " + g2(d.tong) + " điểm. Bỏ phiếu ra, đưa phiếu tiếp theo vào";
+  }
+};
+$("qdung").onclick = dungQuet;
+$("ngoi").onclick = () => $("fgoi").click();
+$("fgoi").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const t = await f.text(), g = JSON.parse(t);
+    if (!g || (!g.bi_mat && !(g.khoa && Object.keys(g.khoa).length))) throw new Error("File không phải gói đề (thiếu đáp án).");
+    luuLS("goi", t); ["khoa", "lop", "cd", "nguong"].forEach(k => { try { localStorage.removeItem("chamdt_" + k); } catch (x) {} });
+    alert("Đã nạp gói đề" + (g.ten ? ": " + g.ten : "") + ". Trang sẽ tải lại."); location.reload();
+  } catch (x) { alert("Không nạp được gói đề: " + (x && x.message || x)); }
+};
+$("chup").onclick = () => $("fchup").click(); $("chon").onclick = () => $("fchon").click();
+$("fchup").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) xuLy(f); };
+$("fchon").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) xuLy(f); };
+function goiKetQua() {
+  const bai = ketQua.map(d => ({id: d.id || (String(d.tg || "") + "_" + (d.sbd || "") + "_" + (d.ten_file || "")), tg: d.tg || 0, ok: !!d.ok, loi: d.loi || "", sbd: d.sbd || "", ten: tenTheoSBD(d.sbd) || "",
+    ma: d.ma || "", tong: d.tong || 0, diem_1: d.diem_1 || 0, diem_2: d.diem_2 || 0, diem_3: d.diem_3 || 0, nguon: d.nguon || "", canh_bao: d.canh_bao || [],
+    ten_file: d.ten_file || "", goc: d.goc || "", cham: d.anh || ""}));
+  return new Blob([JSON.stringify({loai: "cham_dien_thoai", phien_ban: 1, bai})], {type: "application/json"});
+}
+function tenFileKq() { const n = new Date(), p = x => String(x).padStart(2, "0"); return "ket_qua_dien_thoai_" + n.getFullYear() + p(n.getMonth() + 1) + p(n.getDate()) + "_" + p(n.getHours()) + p(n.getMinutes()) + ".json"; }
+$("xuat").onclick = () => { if (!ketQua.length) { alert("Chưa có bài nào để lưu."); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(goiKetQua()); a.download = tenFileKq(); document.body.appendChild(a); a.click(); a.remove(); };
+try { const th = new File([new Blob(["{}"])], "a.json", {type: "application/json"}); if (navigator.canShare && navigator.canShare({files: [th]})) $("chiase").style.display = "block"; } catch (e) {}
+$("chiase").onclick = async () => { if (!ketQua.length) { alert("Chưa có bài nào để gửi."); return; }
+  try { await navigator.share({files: [new File([goiKetQua()], tenFileKq(), {type: "application/json"})], title: "Kết quả chấm phiếu tô"}); } catch (e) { if (e && e.name !== "AbortError") alert("Không gửi được: " + e); } };
+$("xoa").onclick = () => { if (confirm("Xoá toàn bộ danh sách đã chấm?")) { ketQua = []; chon = -1; $("kq").innerHTML = ""; luuKetQua(); veDS(); } };
+function khoaSapXep(ten) { const t = ten.trim().split(/\s+/); return [t[t.length - 1] || "~", t.slice(0, -1).join(" ")]; }
+$("csv").onclick = () => {
+  const co = new Intl.Collator("vi"), ds = ketQua.map(d => d).sort((a, b) => { const ta = tenTheoSBD(a.sbd), tb = tenTheoSBD(b.sbd);
+    if (ta && tb) { const x = khoaSapXep(ta), y = khoaSapXep(tb); return co.compare(x[0], y[0]) || co.compare(x[1], y[1]); } return (a.sbd || "").localeCompare(b.sbd || ""); });
+  const q = s => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
+  let s = "﻿STT,Số báo danh,Họ và tên,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
+  ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.ma), d.ok ? g2(d.diem_1) : "", d.ok ? g2(d.diem_2) : "", d.ok ? g2(d.diem_3) : "", d.ok ? g2(d.tong) : "", q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([s], {type: "text/csv;charset=utf-8"})); a.download = "ket_qua_cham.csv"; document.body.appendChild(a); a.click(); a.remove();
+};
+/* ---- QR tổng: một mã QR chứa đáp án của nhiều mã đề ---- */
+function giaiMaTong(chuoi, biMat) {      // "DAK1.xxx.yyy" -> {mã đề: {"1":[],"2":[],"3":[]}} hoặc null
+  const s = String(chuoi || "").trim(); if (!s.startsWith("DAK1.")) return null;
+  const kq = {}; for (const p of s.slice(5).split(".")) { const r = giaiMaKhoa(p, biMat); if (!r) return null; kq[r[0]] = r[1]; }
+  return Object.keys(kq).length ? kq : null;
+}
+function khoaRaCsv(k) {
+  const ma = Object.keys(k), q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; let s = "Phần,Câu," + ma.map(q).join(",") + "\n";
+  [["1", "Phần I"], ["2", "Phần II"], ["3", "Phần III"]].forEach(([p, ten]) => { const n = Math.max(0, ...ma.map(m => k[m][p].length));
+    for (let i = 0; i < n; i++) s += ten + "," + (i + 1) + "," + ma.map(m => q(k[m][p][i] || "")).join(",") + "\n"; });
+  return s;
+}
+async function docQRAnh(file) {     // trả về mọi chuỗi QR đọc được trong ảnh (thử nhiều kích thước)
+  const bmp = await createImageBitmap(file), txts = [];
+  for (const t of [1, 0.6, 0.4]) {
+    const m = Math.max(bmp.width, bmp.height), sc = Math.min(1, 2400 / m) * t, W = Math.round(bmp.width * sc), H = Math.round(bmp.height * sc);
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const cx = cv.getContext("2d"); cx.drawImage(bmp, 0, 0, W, H);
+    try { if ("BarcodeDetector" in window) { const r = await new BarcodeDetector({formats: ["qr_code"]}).detect(cv); r.forEach(x => txts.push(x.rawValue)); } } catch (e) {}
+    if (!txts.length && await taiJsQR()) { const id = cx.getImageData(0, 0, W, H), r = window.jsQR(id.data, W, H, {inversionAttempts: "attemptBoth"}); if (r) txts.push(r.data); }
+    if (txts.length) break;
+  }
+  return txts;
+}
+$("qrtong").onclick = () => $("fqr").click();
+$("fqr").onchange = async () => {
+  const f = $("fqr").files[0]; $("fqr").value = ""; if (!f) return;
+  if (!biMat) { alert("Trang này không có khoá bí mật của mã QR (phiếu đã tắt QR). Hãy lưu lại trang chấm từ phần mềm khi đã bật mã QR."); return; }
+  $("tt").textContent = "Đang đọc mã QR...";
+  let ds = null, thay = false;
+  try { for (const t of await docQRAnh(f)) { thay = true; ds = giaiMaTong(t, biMat); if (ds) break; } } catch (e) {}
+  capNhatTT();
+  if (!ds) { alert(thay ? "Đọc được mã QR nhưng không phải QR tổng của phần mềm hoặc khác khoá bí mật. Hãy lưu lại trang chấm từ cùng máy tính." :
+    "Không đọc được mã QR. Chụp gần hơn, đủ sáng, mã QR chiếm phần lớn khung ảnh và không bị loá."); return; }
+  Object.assign(khoa, ds); const csv = khoaRaCsv(khoa); $("khoa").value = csv; luuLS("khoa", csv); capNhatTT();
+  alert("Đã nạp đáp án của " + Object.keys(ds).length + " mã đề: " + Object.keys(ds).join(", "));
+};
+napCaiDat();
+</script><script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(function(){});</script></body></html>
