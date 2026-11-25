@@ -26,7 +26,7 @@ textarea{min-height:90px;font:13px/1.3 ui-monospace,monospace}label{display:bloc
 <input id="fchon" type="file" accept="image/*" multiple hidden>
 <button id="chup">Chụp phiếu</button>
 <button class="nhat" id="quet">📷 Quét phiếu liên tục (không cần bấm chụp)</button>
-<div id="khung" hidden style="position:fixed;inset:0;background:#000;z-index:50;display:none;flex-direction:column"><video id="vid" playsinline muted autoplay style="flex:1;min-height:0;width:100%;object-fit:contain"></video><div id="qtt" style="color:#fff;padding:10px;text-align:center;font-size:18px;font-weight:600">Đang mở camera...</div><button id="qdung" style="margin:0 12px 14px">Dừng quét</button></div>
+<div id="khung" hidden style="position:fixed;inset:0;background:#000;z-index:50;display:none;flex-direction:column"><video id="vid" playsinline muted autoplay style="flex:1;min-height:0;width:100%;object-fit:contain"></video><img id="qanh" style="display:none;position:absolute;left:0;top:0;width:100%;height:calc(100% - 120px);object-fit:contain;background:rgba(0,0,0,.88);pointer-events:none"><div id="qdiem" style="display:none;position:absolute;left:0;right:0;top:0;padding:10px 8px;text-align:center;color:#fff;background:rgba(10,125,79,.92);font-weight:800;font-size:40px;line-height:1.1;pointer-events:none"></div><div id="qtt" style="color:#fff;padding:10px;text-align:center;font-size:18px;font-weight:600">Đang mở camera...</div><button id="qdung" style="margin:0 12px 14px">Dừng quét</button></div>
 <button class="nhat" id="chon">Chọn ảnh có sẵn trong máy (nhiều ảnh)</button>
 <input id="fqr" type="file" accept="image/*" capture="environment" hidden>
 <button class="nhat" id="qrtong">📷 Nạp đáp án: chụp mã QR tổng của các mã đề</button>
@@ -525,6 +525,8 @@ $("quet").onclick = async () => {
     d.ten_file = "quet_" + (ketQua.length + 1) + ".jpg"; ketQua.push(d); luuKetQua(); hienKQ(ketQua.length - 1);
     daNhan = kh; ungVien = ""; tiengBip(); try { navigator.vibrate && navigator.vibrate(150); } catch (e) {}
     $("qtt").textContent = "✓ SBD " + d.sbd + " · Mã " + d.ma + " · " + g2(d.tong) + " điểm. Bỏ phiếu ra, đưa phiếu tiếp theo vào";
+    if (d.anh) { $("qanh").src = d.anh; $("qdiem").innerHTML = g2(d.tong) + " điểm<div style='font-size:18px;font-weight:600'>SBD " + d.sbd + (tenTheoSBD(d.sbd) ? " · " + tenTheoSBD(d.sbd) : "") + " · Mã đề " + d.ma + "</div>";
+      $("qanh").style.display = $("qdiem").style.display = "block"; await new Promise(r => setTimeout(r, 1000)); $("qanh").style.display = $("qdiem").style.display = "none"; }   // hiện ảnh bài vừa chấm trong 1 giây
   }
 };
 $("qdung").onclick = dungQuet;
