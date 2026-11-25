@@ -368,13 +368,14 @@ function nanAnh(img, Hinv, W, Hh) {      // nắn phiếu về khung chuẩn (bi
 /* ===================== GIAO DIỆN ===================== */
 const $ = id => document.getElementById(id);
 const BC = DU_LIEU && DU_LIEU.bo_cuc;
-let khoa = {}, cdc = {}, dsLop = {}, biMat = "", ketQua = [], chon = -1;
+let khoa = {}, cdc = {}, dsLop = {}, biMat = "", ketQua = [], chon = -1, tenDeHT = "";
 function luuLS(k, v) { try { localStorage.setItem("chamdt_" + k, v); } catch (e) {} }
 function docLS(k) { try { return localStorage.getItem("chamdt_" + k); } catch (e) { return null; } }
 function napCaiDat() {
   let goi = {}; try { goi = JSON.parse(docLS("goi") || "{}") || {}; } catch (e) {}
   const dl = Object.assign({}, DU_LIEU || {}, goi, {bo_cuc: DU_LIEU && DU_LIEU.bo_cuc});
   if (DU_LIEU && DU_LIEU.pwa) { $("goi").style.display = "block"; $("goitt").textContent = goi.ten ? "Đang dùng gói đề: " + goi.ten : "Chưa nạp gói đề. Trên máy tính: Phiếu tô › Chấm bài › “Xuất gói đề cho ứng dụng điện thoại”, gửi file về điện thoại rồi bấm nút trên."; }
+  tenDeHT = dl.ten || "";
   cdc = Object.assign({}, CHAM_MAC_DINH, dl.cham || {});
   biMat = dl.bi_mat || "";
   khoa = Object.assign({}, dl.khoa || {});
@@ -434,7 +435,7 @@ async function chamMotAnh(file, quet) {
   const t = Math.min(1, 2000 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * t), h = Math.round(bmp.height * t);
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const cx = cv.getContext("2d", {willReadFrequently: true}); cx.drawImage(bmp, 0, 0, w, h);
   const img = cx.getImageData(0, 0, w, h), doc = docPhieu(img, BC, nguong());
-  const d = {ten_file: file.name || "anh", ok: doc.ok, loi: doc.loi, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), tg: Date.now()};
+  const d = {ten_file: file.name || "anh", ok: doc.ok, loi: doc.loi, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), tg: Date.now(), de: tenDeHT};
   if (!(quet && !doc.ok)) { try { d.goc = cv.toDataURL("image/jpeg", 0.85); } catch (e) { d.goc = ""; } }          // ảnh bài làm (để xuất về máy tính)
   if (!doc.ok) return d;
   try { doc.khoa_qr = await docQR(bmp, doc, t); } catch (e) { doc.khoa_qr = null; }
@@ -470,13 +471,13 @@ function hienKQ(i) {
     '<button class="nhat" id="e_lai">Chấm lại với SBD/mã đề đã sửa</button>' +
     '<div class="phu" id="e_ten">' + (tenTheoSBD(d.sbd) || "") + '</div>' +
     '<div class="luoi"><div>Phần I<b>' + g2(d.diem_1) + '</b></div><div>Phần II<b>' + g2(d.diem_2) + '</b></div><div>Phần III<b>' + g2(d.diem_3) + '</b></div></div>' +
-    (d.canh_bao.length ? '<div class="cb">⚠ ' + d.canh_bao.join("; ") + '</div>' : '') + '<div class="phu">Đáp án từ: ' + (d.nguon || "") + '</div>' + (d.anh ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.anh + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_da_cham.jpg">⬇ Tải ảnh bài đã chấm</a>' + (d.goc ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.goc + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_goc.jpg">⬇ Tải ảnh bài làm (gốc)</a>' : '') + '<img src="' + d.anh + '">' : '<div class="phu">(ảnh bài chấm không lưu sau khi tải lại trang)</div>') + '</div>';
+    (d.canh_bao.length ? '<div class="cb">⚠ ' + d.canh_bao.join("; ") + '</div>' : '') + '<div class="phu">Đề: <b>' + (d.de || "(chưa nạp gói đề)") + '</b> · Đáp án từ: ' + (d.nguon || "") + '</div>' + (d.anh ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.anh + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_da_cham.jpg">⬇ Tải ảnh bài đã chấm</a>' + (d.goc ? '<a style="display:block;text-align:center;margin:8px 0;padding:10px;border:1px solid var(--vien);border-radius:8px" href="' + d.goc + '" download="bai_' + (d.sbd || "khong_doc_duoc") + '_goc.jpg">⬇ Tải ảnh bài làm (gốc)</a>' : '') + '<img src="' + d.anh + '">' : '<div class="phu">(ảnh bài chấm không lưu sau khi tải lại trang)</div>') + '</div>';
   try { if (navigator.vibrate) navigator.vibrate(120); $("kq").scrollIntoView({behavior: "smooth", block: "start"}); } catch (e) {}
   if ($("e_lai")) $("e_lai").onclick = () => { const x = ketQua[chon]; if (!x.doc) { alert("Bài này đã được tải lại từ bộ nhớ, không chấm lại được."); return; }
     x.doc.sbd = $("e_sbd").value.trim(); x.doc.ma = $("e_ma").value.trim(); const ch = cham(x.doc, khoa, cdc, null);
     Object.assign(x, {ch, sbd: x.doc.sbd, ma: x.doc.ma, tong: ch.tong, nguon: ch.nguon, canh_bao: ch.canh_bao, diem_1: ch.diem_1, diem_2: ch.diem_2, diem_3: ch.diem_3}); luuKetQua(); hienKQ(chon); };
 }
-function luuKetQua() { luuLS("ketqua", JSON.stringify(ketQua.map(d => ({ten_file: d.ten_file, ok: d.ok, loi: d.loi, sbd: d.sbd, ma: d.ma, tong: d.tong, diem_1: d.diem_1, diem_2: d.diem_2, diem_3: d.diem_3, nguon: d.nguon, canh_bao: d.canh_bao})))); }
+function luuKetQua() { luuLS("ketqua", JSON.stringify(ketQua.map(d => ({de: d.de || "", ten_file: d.ten_file, ok: d.ok, loi: d.loi, sbd: d.sbd, ma: d.ma, tong: d.tong, diem_1: d.diem_1, diem_2: d.diem_2, diem_3: d.diem_3, nguon: d.nguon, canh_bao: d.canh_bao})))); }
 function veDS() {
   $("n").textContent = ketQua.length; const t = $("ds");
   t.innerHTML = ketQua.length ? "<tr><th>SBD</th><th>Họ tên</th><th>Mã</th><th>Điểm</th></tr>" : "";
@@ -541,7 +542,7 @@ $("fchon").onchange = e => { const f = [...e.target.files]; e.target.value = "";
 function goiKetQua() {
   const bai = ketQua.map(d => ({id: d.id || (String(d.tg || "") + "_" + (d.sbd || "") + "_" + (d.ten_file || "")), tg: d.tg || 0, ok: !!d.ok, loi: d.loi || "", sbd: d.sbd || "", ten: tenTheoSBD(d.sbd) || "",
     ma: d.ma || "", tong: d.tong || 0, diem_1: d.diem_1 || 0, diem_2: d.diem_2 || 0, diem_3: d.diem_3 || 0, nguon: d.nguon || "", canh_bao: d.canh_bao || [],
-    ten_file: d.ten_file || "", goc: d.goc || "", cham: d.anh || ""}));
+    de: d.de || "", ten_file: d.ten_file || "", goc: d.goc || "", cham: d.anh || ""}));
   return new Blob([JSON.stringify({loai: "cham_dien_thoai", phien_ban: 1, bai})], {type: "application/json"});
 }
 function tenFileKq() { const n = new Date(), p = x => String(x).padStart(2, "0"); return "ket_qua_dien_thoai_" + n.getFullYear() + p(n.getMonth() + 1) + p(n.getDate()) + "_" + p(n.getHours()) + p(n.getMinutes()) + ".json"; }
@@ -556,8 +557,8 @@ $("csv").onclick = () => {
   const co = new Intl.Collator("vi"), ds = ketQua.map(d => d).sort((a, b) => { const ta = tenTheoSBD(a.sbd), tb = tenTheoSBD(b.sbd);
     if (ta && tb) { const x = khoaSapXep(ta), y = khoaSapXep(tb); return co.compare(x[0], y[0]) || co.compare(x[1], y[1]); } return (a.sbd || "").localeCompare(b.sbd || ""); });
   const q = s => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
-  let s = "﻿STT,Số báo danh,Họ và tên,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
-  ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.ma), d.ok ? g2(d.diem_1) : "", d.ok ? g2(d.diem_2) : "", d.ok ? g2(d.diem_3) : "", d.ok ? g2(d.tong) : "", q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
+  let s = "﻿STT,Số báo danh,Họ và tên,Tên đề,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
+  ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.de || ""), q(d.ma), d.ok ? g2(d.diem_1) : "", d.ok ? g2(d.diem_2) : "", d.ok ? g2(d.diem_3) : "", d.ok ? g2(d.tong) : "", q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([s], {type: "text/csv;charset=utf-8"})); a.download = "ket_qua_cham.csv"; document.body.appendChild(a); a.click(); a.remove();
 };
 /* ---- QR tổng: một mã QR chứa đáp án của nhiều mã đề ---- */
