@@ -442,7 +442,7 @@ async function chamMotAnh(file, quet) {
   if (!doc.ok) return d;
   try { doc.khoa_qr = await docQR(bmp, doc, t); } catch (e) { doc.khoa_qr = null; }
   const ch = cham(doc, khoa, cdc, null);
-  Object.assign(d, {doc, ch, sbd: doc.sbd, ma: doc.ma, tong: ch.tong, nguon: ch.nguon, canh_bao: ch.canh_bao});
+  Object.assign(d, {doc, ch, sbd: doc.sbd, ma: doc.ma, tong: ch.tong, diem_1: ch.diem_1, diem_2: ch.diem_2, diem_3: ch.diem_3, nguon: ch.nguon, canh_bao: ch.canh_bao});
   d.anh = veKetQua(img, doc, ch, BC);
   return d;
 }
@@ -565,7 +565,7 @@ function dsSapXep() {
 function taoCsv(ds) {
   const q = s => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
   let s = "\ufeffSTT,Số báo danh,Họ và tên,Tên đề,Mã đề,Phần I,Phần II,Phần III,Tổng điểm,Đáp án từ,Ghi chú\r\n";
-  ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.de || ""), q(d.ma), d.ok ? g2(d.diem_1) : "", d.ok ? g2(d.diem_2) : "", d.ok ? g2(d.diem_3) : "", d.ok ? g2(d.tong) : "", q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
+  ds.forEach((d, i) => { s += [i + 1, q(d.sbd), q(tenTheoSBD(d.sbd)), q(d.de || ""), q(d.ma), q(d.ok ? g2(d.diem_1) : ""), q(d.ok ? g2(d.diem_2) : ""), q(d.ok ? g2(d.diem_3) : ""), q(d.ok ? g2(d.tong) : ""), q(d.nguon), q(d.ok ? (d.canh_bao || []).join("; ") : "Lỗi: " + d.loi)].join(",") + "\r\n"; });
   return s;
 }
 function taiXuong(blob, ten) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ten; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); }
